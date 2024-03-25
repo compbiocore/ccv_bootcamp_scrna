@@ -1,2 +1,1 @@
-FROM ghcr.io/compbiocore/bootcamp_scrna:mar_18_04-24-48_2024
-RUN R -e "SeuratData::InstallData('pbmc3k')"
+FROM ghcr.io/compbiocore/bootcamp_scrna:mar_25_10-42-25_2024
