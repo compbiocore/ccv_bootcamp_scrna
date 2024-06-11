@@ -1,1 +1,1 @@
-FROM ghcr.io/compbiocore/bootcamp_scrna:mar_11_02-56-56_2024
+FROM ghcr.io/compbiocore/bootcamp_scrna:jun_11_03-35-40_2024
