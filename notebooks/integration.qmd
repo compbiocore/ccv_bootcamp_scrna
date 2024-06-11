@@ -1,0 +1,214 @@
+---
+title: "Integration"
+format: html
+editor: visual
+execute: 
+  cache: true
+---
+
+## Integration
+
+Integration of single-cell sequencing datasets, for example across experimental batches, donors, or conditions, is often an important step in scRNA-seq workflows. Integrative analysis can help to match shared cell types and states across datasets, which can boost statistical power, and most importantly, facilitate accurate comparative analysis across datasets. In previous versions of Seurat we introduced methods for integrative analysis, including our ‘anchor-based’ integration workflow. Many labs have also published powerful and pioneering methods, including Harmony and scVI, for integrative analysis. We recognize that while the goal of matching shared cell types across datasets may be important for many problems, users may also be concerned about which method to use, or that integration could result in a loss of biological resolution. In Seurat v5, we introduce more flexible and streamlined infrastructure to run different integration algorithms with a single line of code. This makes it easier to explore the results of different integration methods, and to compare these results to a workflow that excludes integration steps. 
+
+Seurat v5 enables streamlined integrative analysis using the `IntegrateLayers` function. The method currently supports five integration methods. Each of these methods performs integration in low-dimensional space, and returns a dimensional reduction (i.e. integrated.rpca) that aims to co-embed shared cell types across batches (samples):
+
+```         
+Anchor-based CCA integration (method=CCAIntegration)
+Anchor-based RPCA integration (method=RPCAIntegration)
+Harmony (method=HarmonyIntegration)
+FastMNN (method= FastMNNIntegration)
+scVI (method=scVIIntegration)
+```
+
+A detailed discussion of these different methods is outside the scope of this workshop, but you can find more detail on each method in Seurat’s documentation. However, the Seurat authors state:
+
+By identifying shared sources of variation between datasets, CCA is well-suited for identifying anchors when cell types are conserved, but there are very substantial differences in gene expression across experiments. CCA-based integration therefore enables integrative analysis when experimental conditions or disease states introduce very strong expression shifts, or when integrating datasets across modalities and species. However, CCA-based integration may also lead to overcorrection, especially when a large proportion of cells are non-overlapping across datasets. RPCA-based integration runs faster, and also represents a more conservative approach where cells in different biological states are less likely to ‘align’ after integration. We therefore recommend RPCA during integrative analysis where:
+
+-   A substantial fraction of cells in one dataset have no matching type in the other
+-   Datasets originate from the same platform (i.e. multiple lanes of 10x genomics)
+-   There are a large number of datasets or cells to integrate (see here for more tips on integrating large datasets)
+
+There are also papers that attempt to benchmark different integration approaches:
+
+"For example, the use of Harmony is appropriate for simple integration tasks with distinct batch and biological structure; however, this method typically ranks outside the top three when used for complex real data scenarios... Methods that used cell annotations to integrate batches (scGen and scANVI) performed well across tasks...Particularly in more complex integration tasks, we observed a tradeoff between batch effect removal and bio-conservation (Fig. 3a and Supplementary Data 1). While methods such as SAUCIE, LIGER, BBKNN and Seurat v3 tend to favor the removal of batch effects over conservation of biological variation, DESC and Conos make the opposite choice, and Scanorama, scVI and FastMNN (gene) balance these two objectives. Other methods strike different balances per task (Extended Data Fig. 4). This tradeoff is particularly noticeable where biological and batch effects overlap. For example, in the lung task, three datasets sample two distinct spatial locations (airway and parenchyma). Particular cell types such as endothelial cells perform different functions in these locations (for example, gas exchange in the parenchyma)."
+(Luecken et al 2022 https://doi.org/10.1038/s41592-021-01336-8).
+
+We will run `CCAIntegration` (this was the default flavor of integration in previous versions of Seurat), `RPCAIntegration`, and `HarmonyIntegration`. Note that we are specifying that we used `SCT` normalization:
+
+```{r}
+all_data_sub<- IntegrateLayers(
+  object = all_data_sub, method = CCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.cca", normalization.method = "SCT",
+  verbose = FALSE
+)
+```
+
+```{r}
+all_data_sub <- IntegrateLayers(
+  object = all_data_sub, method = RPCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.rpca", normalization.method = "SCT",
+  verbose = FALSE
+)
+```
+
+```{r}
+all_data_sub <- IntegrateLayers(
+  object = all_data_sub, method = HarmonyIntegration,
+  orig.reduction = "pca", new.reduction = "harmony", normalization.method = "SCT",
+  verbose = FALSE
+)
+```
+
+
+Seurat will cluster your cells into groups of cells with similar expression patterns. The first step is `FindNeighbors`, which will construct a K-nearest neighbor (KNN) graph based on the euclidean distance in PCA space, and refine the edge weights between any two cells based on the shared overlap in their local neighborhoods (Jaccard similarity). To cluster the cells, we run `FindClusters` to apply the Louvain algorithm to iteratively group cells together, with the goal of optimizing the standard modularity function. `FindClusters` takes a `resolution` argument (defaults to a value of 0.8), which sets the granularity of the clustering, setting this parameter between 0.4-1.2 typically returns good results for single-cell datasets of around 3K cells but the resolution might increase for larger datasets. Use a value above 1 if you want a larger number of communities (clusters), and a value below 1 if you want a smaller number of communities.
+
+```{r}
+all_data_sub <- FindNeighbors(all_data_sub, reduction = "integrated.cca", dims = 1:10)
+all_data_sub <- FindClusters(all_data_sub, resolution = .6, cluster.name = "cca_clusters")
+
+all_data_sub <- FindNeighbors(all_data_sub, reduction = "integrated.rpca", dims = 1:10)
+all_data_sub <- FindClusters(all_data_sub, resolution = .6, cluster.name = "rpca_clusters")
+
+all_data_sub <- FindNeighbors(all_data_sub, reduction = "harmony", dims = 1:10)
+all_data_sub <- FindClusters(all_data_sub, resolution = .6, cluster.name = "harmony_clusters")
+
+```
+
+Run UMAP (Uniform Manifold Approximation and Projection) dimensional reduction technique on the unintegrated data and the different integration methods:
+
+```{r}
+all_data_sub <- RunUMAP(all_data_sub, dims = 1:10, reduction = "pca", reduction.name = "umap.unintegrated")
+
+all_data_sub <- RunUMAP(all_data_sub, reduction = "integrated.cca", dims = 1:10, reduction.name = "umap.cca")
+all_data_sub <- RunUMAP(all_data_sub, reduction = "integrated.rpca", dims = 1:10, reduction.name = "umap.rpca")
+all_data_sub <- RunUMAP(all_data_sub, reduction = "harmony", dims = 1:10, reduction.name = "umap.harmony")
+```
+
+
+
+```{r}
+p1 <- DimPlot(
+  all_data_sub,
+  reduction = "umap.unintegrated",
+  group.by = "cca_clusters",
+  split.by = "orig.ident",  
+  combine = FALSE, label.size = 2
+)
+
+p1
+```
+
+```{r}
+p2 <- DimPlot(
+  all_data_sub,
+  reduction = "umap.rpca",
+  group.by = "rpca_clusters",
+  split.by = "orig.ident",  
+  combine = FALSE, label.size = 2
+)
+p2
+```
+
+```{r}
+p3 <- DimPlot(
+  all_data_sub,
+  reduction = "umap.harmony",
+  group.by = "harmony_clusters",
+  split.by = "orig.ident",  
+  combine = FALSE, label.size = 2
+)
+p3
+```
+
+```{r}
+p4 <- DimPlot(
+  all_data_sub,
+  reduction = "umap.cca",
+  group.by = "cca_clusters",
+  split.by = "orig.ident",  
+  combine = FALSE, label.size = 2
+)
+p4
+```
+
+You can manually set the colors for the clusters, like this: First, get a list of all the built in colors that R knows about and use `grep` to remove anything with `gray` or `grey` or `light` in the color name.
+
+```{r}
+colors <- grDevices::colors()[grep('gr(a|e)y|light', grDevices::colors(), invert = T)]
+```
+
+Then pick enough colors from that list so that each `cca_cluster` has its own color
+
+```{r}
+cca_cluster_colors <- sample(x = colors, size = all_data_sub@meta.data$cca_clusters %>% unique() %>% length())
+```
+
+Assign names so that each color is associated with a cluster identity:
+
+```{r}
+names(cca_cluster_colors) <-all_data_sub@meta.data$cca_clusters %>% unique() 
+cca_cluster_colors
+```
+
+We can do the same and use the `Zissou` palette with `hcl.colors` (run `hcl.pals()` to see all options)
+
+```{r}
+zissou_colors <- hcl.colors( all_data_sub@meta.data$cca_clusters %>% unique() %>% length(), "Zissou 1")
+names(zissou_colors) <-all_data_sub@meta.data$cca_clusters %>% unique() 
+```
+
+We can also generate new color palettes using RColorBrewer. You can see all of the color palettes available through RColorBrewer if you run `display.brewer.all()`. We specify that we want to use 8 colors from the 'Set2' palette from RColorBrewer, then we use colorRampPalette to expand that palette to make sure we have enough colors for all of the unique clusters.
+
+```{r}
+set2_colors <- colorRampPalette(brewer.pal(8, 'Set2'))(all_data_sub@meta.data$cca_clusters %>% unique() %>% length())
+```
+
+Then plot the cell using these color themes:
+```{r}
+
+DimPlot(
+  all_data_sub,
+  reduction = "umap.cca",
+  group.by = "cca_clusters",
+  combine = FALSE, label.size = 2,
+  cols = cca_cluster_colors
+)
+```
+
+```{r}
+
+DimPlot(
+  all_data_sub,
+  reduction = "umap.cca",
+  group.by = "cca_clusters",
+  combine = FALSE, label.size = 2,
+  cols = set2_colors
+)
+```
+
+
+We can leave the legend off, use the Zissou colors, omit the `split_by` argument and the legend:
+
+```{r}
+zissou_plot <- DimPlot(
+  all_data_sub,
+  reduction = "umap.cca",
+  group.by = "cca_clusters",
+  cols = zissou_colors
+) + NoLegend()
+```
+
+Then we can label the clusters:
+
+```{r}
+LabelClusters(plot = zissou_plot , id = "cca_clusters", box = T, repel = T)
+```
+
+Once integrative analysis is complete, you can rejoin the layers - which collapses the individual datasets together and recreates the original counts and data layers. You will need to do this before performing any differential expression analysis. However, you can always re-split the layers in case you would like to re-perform integrative analysis.
+
+```{r}
+all_data_sub <- JoinLayers(all_data_sub, assay ='RNA')
+```
+
+
+

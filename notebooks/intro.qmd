@@ -1,0 +1,162 @@
+---
+title: "Introduction"
+format: html
+editor: visual
+execute: 
+  cache: true
+---
+
+## To use this notebook
+
+1.  Go to ood.ccv.brown.edu (you will need an Oscar account).
+2.  Go to 'Clusters' in the blue menu bar at the top and click the drop-down that says '\>\_OSCAR Shell Access'
+3.  Go to your home folder and make a folder called `scrna_r_workshop_2023` (`cd ~` and `mkdir scrna_r_workshop_2023`), then type `pwd` to get the path to this folder.
+4.  Look under `Interactive Apps` in the blue menu bar and click on `RStudio on Singularity` under `Expert GUIs`.
+
+Fill in the fields as follows:
+
+-   `Account`: leave blank\
+-   `Partition`: leave blank\
+-   `Number of hours`: 3\
+-   `Num Cores`: 8\
+-   `Memory`: 90\
+-   `Singularity Container Path`:/gpfs/data/shared/databases/workshops/bootcamp_2023/scrna_r_workshop.sif\
+-   `Package install Path`: leave blank\
+-   `Path for R Executable`: This should be the full path to the `scrna_r_workshop_2023` you made in step 3.\
+-   `R Module`: leave blank\
+-   `Additional Data Path`: /gpfs/data/shared/databases/workshops/bootcamp_2023/scrna_r_workshop\
+
+Once your job starts, click the button to connect to session.\
+At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file'.\
+It will ask for a File name -- paste this into the box: `/gpfs/data/shared/databases/workshops/bootcamp_2023/scrna_r_workshop/intro.Rmd`
+
+## Introduction to scRNA-seq
+
+**What we will cover**\
+- How does scRNA-seq differ from bulk RNA-seq?\
+- scRNAseq technologies\
+- Parallelization options for Seurat and other packages\
+- Seurat objects and importing data\
+- Data merging, QC, and filtering\
+- SCTransform normalization, clustering, dimension reduction\
+- Data integration  - Differential expression testing\
+- Data visualization\
+- Classifying cell types with a reference atlas with TransferAnchors from Seurat\
+
+Much of this notebook is adapted from the Seurat vignettes https://satijalab.org/seurat and GitHub repository https://github.com/satijalab/seurat
+
+## How does scRNA-seq differ from bulk RNA-seq?
+
+![bulk vs single cell](image/bulk_vs_singlecell.png)
+
+-   In bulk RNA-seq you are taking a snapshot of expression of all the cells in a sample and your measurements are aggregated across all of those cells.
+
+-   In scRNA-seq, you can get a sense of the heterogeneity of the cells in your sample.
+
+    -   Are there novel or rare cell types?
+
+    -   What about cell type specific gene expression?
+
+    -   Does the distribution of different cell types change across time or treatment?
+
+-   This increased resolution comes with some unique challenges.
+
+    -   Dropouts - genes that are not detected in some cells, can lead to sparse expression matrices with many zero values.
+
+    -   Doublets - sequencing two cells at the same time and can't distinguish their expression or cell types, need to filter these out during QC.
+
+    -   Dying cells - you will lose some cells because they are dead or dying, you can also filter these out during sample QC.
+
+    -   You also should be cautious when thinking about your sample sizes. For example, you may be sequencing thousands of cells but if they all come from the same mouse you lose the ability to generalize your findings.
+
+## scRNAseq technologies
+
+-   Although 10X genomics is probably the most popular technology for scRNA-seq, there are other flavors as well (see PMID 30472192 and PMID 28212749).
+
+![](image/10x_flow.png)
+
+10x sequencing encapsulates a cell, reagents, and a bead w/ primer in an oil droplet (aka GEM or Gel Bead-in EMulsion). Again, if you have a situation where one droplet has two cells, this is a 'doublet', you can also have empty droplets where there's no cell encapsulated.
+
+![](image/10x_bead.png)
+
+After encapsulation of cells, beads, and reagents in the oil droplets, the bead is dissolved and releases primers. The poly (dT) primers are used for generating the gene expression libraries. The capture sequence primers are shown in a lighter shading because they are only used in situations where you'd like to add an extra channel of information to your experiment by using feature barcoding (cell-surface protein characterization, multiplexing, etc.).
+
+## Library preparation details
+
+Let's go over the details of how the library prep works (see https://teichlab.github.io/scg_lib_structs/methods_html/10xChromium3.html)
+
+![sc bead](image/seq_step1.png)The polyA mRNAs are captured using the oligo(dT) on the beads, MMLV (Moloney Murine Leukemia Virus) reverse transcriptase synthesizes complementary strand to the fragment thats captured.\\\\
+
+![](image/seq_step2.png)
+
+The RT adds some extra Cs on the end.\\\\
+
+![](image/seq_step3.png)
+
+The template-switching oligo is added so we can continue across the other strand.\\\\
+
+![sc bead](image/seq_step4.png) Add primers to amplify full length cDNA\\\\
+
+![sc bead](image/seq_step5.png) Fragment cDNA, perform A-tailing\\\\
+
+![sc bead](image/seq_step6.png) At this point we add the Truseq adapters, product 3 is what you'll actually sequence.\\\\
+
+![](image/seq_step7.png)
+
+Add the library PCR primers 1 and 2 to amplify the library\\\\
+
+![sc bead](image/seq_step8.png)The final library structure looks like the above image -- the exact length of the UMI might depend on which chemistry you're using.
+
+![sc bead](image/10x_lib_seq.png)The actual sequencing looks like the above image. Truseq Read 1 uses bottom strand as template and sequences the bacrode + UMI. Sample Index primer sequences the sample index using bottom strand as template. Regenerate clusters and Truseq Read 2 primer sequences the second read using the top strand as template.\\\\
+
+![](image/single_vs_double.png)
+
+The above steps assume a single index library, if you're using dual indexes there will be another sample index between the P5 and Truseq Read 1. Dual indexed libraries are beneficial to help prevent index hopping (https://www.10xgenomics.com/blog/sequence-with-confidence-understand-index-hopping-and-how-to-resolve-it).\\\\
+
+```         
+::: {.callout-tip}
+## Tip 
+https://teichlab.github.io/scg_lib_structs/ is an excellent resource for information about the resulting library structures for 10x libraries (and other single cell technologies like Drop-seq or SMART-seq) and was our resource for most of this section.
+:::
+```
+
+## Parallelization options for Seurat and other packages
+
+Let's get started. First, we can set the `.libPaths()`, which essentially tells R that it should look for packages inside these locations inside the Singularity container.
+
+```{r echo=FALSE, message=FALSE}
+.libPaths(c('/usr/local/lib/R/site-library', '/usr/local/lib/R/library'))
+```
+
+All of the methods we are discussing here involve computationally heavy methods, and as such also take advantage of parallelization where they can. Often in their documentation you will find how to use multiple cores when calling a function, usually involving a provided argument or involving a package called `future`.
+
+For example, Seurat has a [vignette on parallelization](https://satijalab.org/seurat/archive/v4.3/future_vignette) with `future`. We will follow it here:
+
+```{r}
+library(future)
+# check the current active plan
+plan()
+```
+
+`plan()` says that we are currently set up to run code *sequentially* or non-parallelized. To see more information, run this code chunk:
+
+```{r}
+?future::plan
+```
+
+Now, we set workers=8 because we've requested 8 cores. Additionally, we set `multisession` instead of `multiprocess` despite what the vignette says, because `multiprocess` is actually deprecated in `future` and we should be explicitly specifying `multisession` or `multicore` instead. Getting into the difference is out of scope of this workshop, but you can [read more](https://cran.r-project.org/web/packages/future/vignettes/future-1-overview.html) on future yourself if interested.
+
+```{r}
+# change the current plan to access parallelization
+plan("multisession", workers = 8)
+plan()
+```
+
+We'll also set a seed at the start of the notebook so that we can reproduce our results if we decide to re-run this notebook at some future date. We also set `future.globals.maxSize`, see the Seurat future vignette linked above for discussion about why we do this (basically we might be exceeding the allowed global variable size so we make that default bigger).
+
+```{r}
+set.seed(61)
+options(future.globals.maxSize = 4000 * 1024^2)
+```
+
+

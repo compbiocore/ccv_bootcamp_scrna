@@ -1,0 +1,62 @@
+---
+title: "Data normalization"
+format: html
+editor: visual
+execute: 
+  cache: true
+---
+
+## Normalization
+
+### Theory
+
+scRNAseq data is normalized so that we can mitigate technical effects while preserving the biological signal in the data -- we should be able to find the biological signal in cells irrespective of how deeply we sequenced the cell. The theory behind SCTransform (https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1874-1) is very similar to the generalized linear models (GLMs) used in bulk RNAseq analysis packages like DESeq2 and edgeR. In DESeq2 a negative binomial model is fitted to the counts and the mean and dispersion (roughly speaking how variable the observed count will be from the mean count) estimates from that model are used as the test statistics for comparison between groups. The same idea applies with SCTransform, with an additional aspect where SCTransform pools information across genes with similar abundances in order to address the higher sparsity of single cell data.
+
+Below is a side-by-side comparison of sctransform with NormalizeData, FindVariableFeatures and ScaleData on the PBMC3k data:
+
+![sct](image/sctransform_vs_regular.png)
+
+We also like this figure from the SCTransform paper, which shows how SCTransform ('Pearson Residuals') and the standard log-transformation approach ('Log-normalization') helps alleviate variance in your data from sequencing depth alone :
+
+![sct_fig6](image/sct_fig6.png)
+
+### When should you not use SCTransform?
+
+The paper states:
+
+`As our workflow leverages all genes (or a random sub-set) for the initial regularization, we make an implicit assumption that the majority of genes in the dataset do not exhibit significant biological variation...this assumption may be overly simplistic when performing scRNA-seq on a highly heterogeneous sample, we did not observe adverse affects when applying our model to human PBMC data, or any of the other datasets we examined.`
+
+SCTransform might not work well if your data is highly heterogeneous and you expect that a high proportion of genes will exhibit significant biological variation across your samples. In this case, we would recommend the more standard workflow of `NormalizeData`, `FindVariableFeatures`, and `ScaleData`. 
+
+### SCTransform versions
+
+Seurat v5 runs SCTransform v2 (https://satijalab.org/seurat/archive/v4.3/sctransform_v2_vignette) by default, while Seurat v4 runs SCTransform v1 by default. SCTransform v2 "improves speed and memory consumption, the stability of parameter estimates, the identification of variable features, and the the ability to perform downstream differential expression analyses." This means you might get different results if you run Seurat v5 and re-normalize data that you have previously processed with Seurat v4. If you want to change from the default veresion of SCTransform, you can add the argument `vst.flavor = "v1"` (or  `vst.flavor = "v2"`))
+
+### Running SCTransform
+
+We will normalize using SCTransform and you might get see a warning that says 'iteration limit reached' when you run the function. This warning can be ignored (https://github.com/satijalab/sctransform/issues/25) because the parameter estimation generating this warning is regularized later anyway. You can use the `vars.to.regress` argument to regress out nuisance variables (like cell cycle, batch effects, or `percent.mt`). By default SCTransform will only return data for variable genes in the scale data slot -- adding the `return.only.var.genes = FALSE` argument to the function call to turn this option off (https://github.com/satijalab/seurat/issues/3553). In previous versions of Seurat, you would have to split your object into a list of Seurat objects based on the `orig.ident` and then run `SCTransform` on the list, which is not necessary in Seurat v5.
+
+
+
+```{r "SCTransform"}
+
+start.time <- Sys.time()
+all_data_sub <- SCTransform(all_data_sub, vars.to.regress = "percent.mt", verbose = FALSE, return.only.var.genes = FALSE)
+end.time <- Sys.time()
+end.time - start.time
+  
+```
+
+Then run PCA
+
+```{r}
+all_data_sub <- RunPCA(all_data_sub)
+```
+
+We can make an elbow plot:
+
+```{r}
+ElbowPlot(all_data_sub)
+```
+
+Based on this plot, we get diminishing information returned once we get above \~10-15 PCs. We will use this information when we run clustering.
