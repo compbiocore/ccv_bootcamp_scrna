@@ -48,14 +48,16 @@ Use `FindAllMarkers` to compare each cluster to all the other clusters. For the 
 cca_markers <- FindAllMarkers(all_data_sub, min.pct = .90, only.pos=TRUE)
 ```
 
-Look at the 3 marker genes with the biggest fold change per cluster
+Look at the marker genes with the biggest fold change per cluster
 
 ```{r}
 top_cluster_markers <- 
   cca_markers %>% 
   group_by(cluster) %>%
+  dplyr::filter(p_val_adj <= 1e-100) %>%
   dplyr::filter(avg_log2FC > 1) %>% 
-  top_n(n = 3, wt = avg_log2FC)
+  dplyr::filter(pct.1 > .9) %>%
+  slice_max(n = 2, order_by = abs(avg_log2FC))
 top_cluster_markers
 ```
 
@@ -64,55 +66,69 @@ Make a `FeaturePlot` to look at the expression of one of the cluster markers. It
 ```{r}
 DefaultAssay(all_data_sub) <- "SCT"
 
-FeaturePlot(all_data_sub, features = c("CD74"), reduction = 'umap.cca', order = T, slot = 'data')
+FeaturePlot(all_data_sub, features = c("CCL3"), reduction = 'umap.cca', order = T, slot = 'data')
 ```
 
 We can adjust the default colors and use one of the `viridis` palettes:
 
 ```{r}
-FeaturePlot(all_data_sub, features = c("CD74"), reduction = 'umap.cca', order = T, slot = 'data') & ggplot2::scale_color_gradientn(colors = viridis::turbo(n = 10, direction = 1))
+FeaturePlot(all_data_sub, features = c("CCL3"), reduction = 'umap.cca', order = T, slot = 'data') & ggplot2::scale_color_gradientn(colors = viridis::turbo(n = 10, direction = 1))
 
 ```
 
 We can add the cluster labels:
 
 ```{r}
-FeaturePlot(all_data_sub, features = c("CD74"), reduction = 'umap.cca', order = T, slot = 'data', label = TRUE, repel = TRUE) & ggplot2::scale_color_gradientn(colors = viridis::turbo(n = 10, direction = 1))
+FeaturePlot(all_data_sub, features = c("CCL3"), reduction = 'umap.cca', order = T, slot = 'data', label = TRUE, repel = TRUE) & ggplot2::scale_color_gradientn(colors = viridis::turbo(n = 10, direction = 1))
 
 ```
 
 We can use `RColorBrewer` palettes instead and specify that we want to drop the colors on the extreme ends of the `Spectral` palette:
 
 ```{r}
-FeaturePlot(all_data_sub, features = c("CD74"), reduction = 'umap.cca', order = T, slot = 'data', label = TRUE, repel = TRUE) & ggplot2::scale_color_gradientn(colors = rev(brewer.pal(10, 'Spectral'))[3:8])
+FeaturePlot(all_data_sub, features = c("CCL3"), reduction = 'umap.cca', order = T, slot = 'data', label = TRUE, repel = TRUE) & ggplot2::scale_color_gradientn(colors = rev(brewer.pal(10, 'Spectral'))[3:8])
 ```
 
 And add a legend title
 
 ```{r}
-FeaturePlot(all_data_sub, features = c("CD74"), reduction = 'umap.cca', order = T, slot = 'data', label = TRUE, repel = TRUE) & ggplot2::scale_color_gradientn(colors = rev(brewer.pal(10, 'Spectral'))[3:8]) & ggplot2::labs(color = "log1p\n(counts)")
+FeaturePlot(all_data_sub, features = c("CCL3"), reduction = 'umap.cca', order = T, slot = 'data', label = TRUE, repel = TRUE) & ggplot2::scale_color_gradientn(colors = rev(brewer.pal(10, 'Spectral'))[3:8]) & ggplot2::labs(color = "log1p\n(counts)")
 ```
 
 We can also make a heatmap of the cluster markers. Seurat heatmaps use the `scale.data` slot by default.
 
 ```{r}
-DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene, size = 3)
+DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene)
 ```
 
 We can customize this heatmap as well:
 
 ```{r}
-DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene, size = 3) & viridis::scale_fill_viridis() 
+DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene) & viridis::scale_fill_viridis() 
 ```
 
 We can adjust which legends are shown, like this:
 
 ```{r}
-DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene, size = 3) & viridis::scale_fill_viridis() & ggplot2::guides(fill=FALSE)
+DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene) & viridis::scale_fill_viridis() & ggplot2::guides(fill=FALSE)
 ```
 
 Or like this:
 
 ```{r}
-DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene, size = 3) & viridis::scale_fill_viridis() & ggplot2::guides(colour=FALSE)
+DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene) & viridis::scale_fill_viridis() & ggplot2::guides(colour=FALSE)
+```
+Another helpful visualization from Seurat is `DotPlot`. The size of each dot indicates the percentage of cells expressing the feature and the color is the average expression level. It uses the scale.data slot by default.
+
+```{r}
+DotPlot(all_data_sub, features = top_cluster_markers$gene) & 
+    RotatedAxis() 
+```
+
+We can use more custom colors:
+
+```{r}
+DotPlot(all_data_sub, features = top_cluster_markers$gene) & 
+    RotatedAxis() & 
+    viridis::scale_color_viridis(option = "magma", direction = -1) 
 ```
