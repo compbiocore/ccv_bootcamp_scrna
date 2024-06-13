@@ -1,0 +1,15 @@
+project:
+  type: book
+
+book:
+  title: ""
+  author: "Joselynn Wallace"
+  date: "June 14th, 2024"
+  chapters:
+    - index.qmd
+
+format:
+  html:
+    theme: cosmo
+  pdf:
+    documentclass: scrreport
