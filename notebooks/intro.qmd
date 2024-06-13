@@ -312,6 +312,15 @@ In addition to `ifnb`, we have also installed `pbmc3k`, which is from 2,700 peri
 pbmc3k@assays
 head(pbmc3k@meta.data)
 ```
+
+- First, lets subset our datasets so they are smaller and easier to work with for this workshop.
+
+```{r}
+pbmc3k <- subset(pbmc3k, downsample = 300)
+ifnb <- subset(ifnb, downsample = 700)
+
+```
+
 - Let's merge the datasets to make our QC and filtering a bit smoother.
 - `merge()` merges the raw count matrices of two Seurat objects and creates a new Seurat object with the resulting combined raw count matrix. 
 - To easily tell which original object any particular cell came from, you can set the `add.cell.ids` parameter with an c(x, y) vector, which will prepend the given identifier to the beginning of each cell name. 
@@ -524,7 +533,6 @@ all_data_sub <- IntegrateLayers(
   verbose = FALSE
 )
 ```
-
 
 Seurat will cluster your cells into groups of cells with similar expression patterns. The first step is `FindNeighbors`, which will construct a K-nearest neighbor (KNN) graph based on the euclidean distance in PCA space, and refine the edge weights between any two cells based on the shared overlap in their local neighborhoods (Jaccard similarity). To cluster the cells, we run `FindClusters` to apply the Louvain algorithm to iteratively group cells together, with the goal of optimizing the standard modularity function. `FindClusters` takes a `resolution` argument (defaults to a value of 0.8), which sets the granularity of the clustering, setting this parameter between 0.4-1.2 typically returns good results for single-cell datasets of around 3K cells but the resolution might increase for larger datasets. Use a value above 1 if you want a larger number of communities (clusters), and a value below 1 if you want a smaller number of communities.
 
@@ -794,14 +802,12 @@ DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$
 Another helpful visualization from Seurat is `DotPlot`. The size of each dot indicates the percentage of cells expressing the feature and the color is the average expression level. It uses the scale.data slot by default.
 
 ```{r}
-DotPlot(all_data_sub, features = top_cluster_markers$gene) & 
-    RotatedAxis() 
+DotPlot(all_data_sub, features = top_cluster_markers$gene) 
 ```
 
 We can use more custom colors:
 
 ```{r}
 DotPlot(all_data_sub, features = top_cluster_markers$gene) & 
-    RotatedAxis() & 
     viridis::scale_color_viridis(option = "magma", direction = -1) 
 ```
