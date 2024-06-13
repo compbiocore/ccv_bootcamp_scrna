@@ -8,27 +8,38 @@ execute:
 
 ## To use this notebook
 
-1.  Go to ood.ccv.brown.edu (you will need an Oscar account).
+1.  Go to `ood.ccv.brown.edu` (you will need an Oscar account).
 2.  Go to 'Clusters' in the blue menu bar at the top and click the drop-down that says '\>\_OSCAR Shell Access'
-3.  Go to your home folder and make a folder called `scrna_r_workshop_2023` (`cd ~` and `mkdir scrna_r_workshop_2023`), then type `pwd` to get the path to this folder.
-4.  Look under `Interactive Apps` in the blue menu bar and click on `RStudio on Singularity` under `Expert GUIs`.
+3.  Go to your home folder (`cd ~`)
+4.  Git clone the repo (\``git clone https://github.com/compbiocore/ccv_bootcamp_scrna.git`\`)
+5.  Go back to `ood.ccv.brown.edu` and look under `Interactive Apps` in the blue menu bar and click on `RStudio on Singularity` under `Expert GUIs`.
 
 Fill in the fields as follows:
 
 -   `Account`: leave blank\
+
 -   `Partition`: leave blank\
--   `Number of hours`: 3\
--   `Num Cores`: 8\
--   `Memory`: 90\
--   `Singularity Container Path`:/gpfs/data/shared/databases/workshops/bootcamp_2023/scrna_r_workshop.sif\
+
+-   `Number of hours`: 24\
+
+-   `Num Cores`: 4\
+
+-   `Memory`: 15\
+
+-   `Singularity Container Path`:/oscar/data/shared/databases/workshops/bootcamp_2024/ngs_count/bootcamp_ngs_counts.sif\
+
 -   `Package install Path`: leave blank\
--   `Path for R Executable`: This should be the full path to the `scrna_r_workshop_2023` you made in step 3.\
+
+-   `Path for R Executable`: This should be the full path to the `ccv_bootcamp_scrna` repository you made in step 4.\
+
 -   `R Module`: leave blank\
--   `Additional Data Path`: /gpfs/data/shared/databases/workshops/bootcamp_2023/scrna_r_workshop\
+
+-   `Additional Data Path`: leave blank
+
+-   `Reservation`: bootcamp\
 
 Once your job starts, click the button to connect to session.\
-At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file'.\
-It will ask for a File name -- paste this into the box: `/gpfs/data/shared/databases/workshops/bootcamp_2023/scrna_r_workshop/intro.Rmd`
+At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file' and open the index.qmd file in the repo you cloned.\
 
 ## Introduction to scRNA-seq
 
@@ -144,11 +155,11 @@ plan()
 ?future::plan
 ```
 
-Now, we set workers=8 because we've requested 8 cores. Additionally, we set `multisession` instead of `multiprocess` despite what the vignette says, because `multiprocess` is actually deprecated in `future` and we should be explicitly specifying `multisession` or `multicore` instead. Getting into the difference is out of scope of this workshop, but you can [read more](https://cran.r-project.org/web/packages/future/vignettes/future-1-overview.html) on future yourself if interested.
+Now, we set workers=4 because we've requested 4 cores. Additionally, we set `multisession` instead of `multiprocess` despite what the vignette says, because `multiprocess` is actually deprecated in `future` and we should be explicitly specifying `multisession` or `multicore` instead. Getting into the difference is out of scope of this workshop, but you can [read more](https://cran.r-project.org/web/packages/future/vignettes/future-1-overview.html) on future yourself if interested.
 
 ```{r}
 # change the current plan to access parallelization
-plan("multisession", workers = 8)
+plan("multisession", workers = 4)
 plan()
 ```
 
@@ -158,7 +169,6 @@ We'll also set a seed at the start of the notebook so that we can reproduce our 
 set.seed(61)
 options(future.globals.maxSize = 4000 * 1024^2)
 ```
-
 
 ## Seurat objects overview
 
@@ -280,18 +290,21 @@ We can look at the Seurat object we've loaded from SeuratData:
 ```{r}
 ?ifnb
 ```
-The `ifnb` dataset is 14,000 IFNB-Stimulated and Control PBMCs (peripheral blood mononuclear cells). 
+
+The `ifnb` dataset is 14,000 IFNB-Stimulated and Control PBMCs (peripheral blood mononuclear cells).
 
 ```{r}
 ifnb
 ```
+
 We can also see that Seurat v5 assays store data in layers. These layers can store raw, un-normalized counts (layer='counts'), normalized data (layer='data') or z-scored/variance-stabilized data (layer='scale.data'). What assays and meta.data are available?
 
 ```{r}
 ifnb@assays
 head(ifnb@meta.data)
 ```
-We have an `RNA` assay, information about which experimental condition the cell came from (`orig.ident` and `stim`), the number of genes (`nFeature_RNA`) and molecules (`nCount_RNA`) in each cell. This particular object also comes pre-annotated (`seurat_annotations`). 
+
+We have an `RNA` assay, information about which experimental condition the cell came from (`orig.ident` and `stim`), the number of genes (`nFeature_RNA`) and molecules (`nCount_RNA`) in each cell. This particular object also comes pre-annotated (`seurat_annotations`).
 
 We will aim to eventually integrate the different samples (`IMMUNE_CTRL` and `IMMUNE_STIM` from `orig.ident`) together. In previous versions of Seurat, we would require the data to be represented as a list of different Seurat objects. When using Seurat v5 assays, we can instead keep all the data in one object, but simply split the layers.
 
@@ -302,10 +315,9 @@ ifnb
 
 After splitting, there are now 4 layers (a counts and data layer for each batch). Since the data is split into layers, normalization and variable feature identification is performed for each sample independently (a consensus set of variable features is automatically identified).
 
-
 ## Data merging
 
-In addition to `ifnb`, we have also installed `pbmc3k`, which is from 2,700 peripheral blood mononuclear cells (PBMC) from 10X genomics. 
+In addition to `ifnb`, we have also installed `pbmc3k`, which is from 2,700 peripheral blood mononuclear cells (PBMC) from 10X genomics.
 
 ```{r}
 ?pbmc3k
@@ -313,7 +325,7 @@ pbmc3k@assays
 head(pbmc3k@meta.data)
 ```
 
-- First, lets subset our datasets so they are smaller and easier to work with for this workshop.
+-   First, lets subset our datasets so they are smaller and easier to work with for this workshop.
 
 ```{r}
 pbmc3k <- subset(pbmc3k, downsample = 300)
@@ -321,10 +333,10 @@ ifnb <- subset(ifnb, downsample = 700)
 
 ```
 
-- Let's merge the datasets to make our QC and filtering a bit smoother.
-- `merge()` merges the raw count matrices of two Seurat objects and creates a new Seurat object with the resulting combined raw count matrix. 
-- To easily tell which original object any particular cell came from, you can set the `add.cell.ids` parameter with an c(x, y) vector, which will prepend the given identifier to the beginning of each cell name. 
-- The original project ID will remain stored in object meta data under `orig.ident`.
+-   Let's merge the datasets to make our QC and filtering a bit smoother.
+-   `merge()` merges the raw count matrices of two Seurat objects and creates a new Seurat object with the resulting combined raw count matrix.
+-   To easily tell which original object any particular cell came from, you can set the `add.cell.ids` parameter with an c(x, y) vector, which will prepend the given identifier to the beginning of each cell name.
+-   The original project ID will remain stored in object meta data under `orig.ident`.
 
 ```{r}
 
@@ -334,9 +346,9 @@ all_data <- merge(x = ifnb, y = pbmc3k, add.cell.ids = c("ifnb", "pbmc3k"), proj
 
 ## Data QC
 
-- We care about the percentage of reads that map to the mitochondrial genome because high mitochondrial reads in a cell can indicate that the cells are low-quality or dying cells
-- The mitochondrial QC metrics are calcualted with the `PercentageFeatureSet()` function, which calculates the percentage of counts originating from a set of features
-- We use the set of all genes starting with MT- as a set of mitochondrial genes -- the format of the mt sequences will vary depending on which organism/genome is used...(might be 'mt-' for example).
+-   We care about the percentage of reads that map to the mitochondrial genome because high mitochondrial reads in a cell can indicate that the cells are low-quality or dying cells
+-   The mitochondrial QC metrics are calcualted with the `PercentageFeatureSet()` function, which calculates the percentage of counts originating from a set of features
+-   We use the set of all genes starting with MT- as a set of mitochondrial genes -- the format of the mt sequences will vary depending on which organism/genome is used...(might be 'mt-' for example).
 
 ```{r "Figure out format of MT gene IDs"}
 rownames(all_data) %>% grep(pattern = '^mt-', ignore.case = TRUE, value = TRUE)
@@ -346,22 +358,25 @@ rownames(all_data) %>% grep(pattern = '^mt-', ignore.case = TRUE, value = TRUE)
 all_data[["percent.mt"]] <- PercentageFeatureSet(all_data, pattern = "^MT-")
 ```
 
-- Before we plot, we can set the order of the object idents to whatever order we'd like:
+-   Before we plot, we can set the order of the object idents to whatever order we'd like:
+
 ```{r}
 Idents(all_data) <- 'orig.ident'
 levels(all_data) <- c("pbmc3k", "IMMUNE_CTRL", "IMMUNE_STIM")
 ```
 
-- We can also look at plots showing the distribution of the `percent.mt`, `nFeature_RNA` and `nCount_RNA`
-- `nFeature_RNA` is the number of genes 
-- `nCount_RNA` is the number of UMIs (unique molecules -- like counts)
+-   We can also look at plots showing the distribution of the `percent.mt`, `nFeature_RNA` and `nCount_RNA`
+-   `nFeature_RNA` is the number of genes
+-   `nCount_RNA` is the number of UMIs (unique molecules -- like counts)
 
 ```{r}
 VlnPlot(all_data, features = "nFeature_RNA")
 ```
+
 ```{r}
 VlnPlot(all_data, features = "nCount_RNA")
 ```
+
 ```{r}
 VlnPlot(all_data, features="percent.mt")
 ```
@@ -369,14 +384,17 @@ VlnPlot(all_data, features="percent.mt")
 ```{r}
 FeatureScatter(all_data, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
 ```
+
 ```{r}
 FeatureScatter(all_data, feature1 = "nCount_RNA", feature2 = "percent.mt")
 ```
+
 ```{r}
 FeatureScatter(all_data, feature1 = "nFeature_RNA", feature2 = "percent.mt")
 ```
 
-You can also just use ggplot to make your own custom visualizations of the information in the metadata. We make a separate matrix called `qc_data` and sorting it based on the `percent.mt` column. Then we make our own ggplot and specify that the x and y axes should be `nCount_RNA` and `nFeature_RNA` and that the points should be colored based on `percent.mt`. Then, use `scale_color_gradientn` to specify how the points should be colored, specifying that the limit should be between 0 and 10 and that we should `squish` anything that is out of bounds (effectively making our limits 0 and >10).
+You can also just use ggplot to make your own custom visualizations of the information in the metadata. We make a separate matrix called `qc_data` and sorting it based on the `percent.mt` column. Then we make our own ggplot and specify that the x and y axes should be `nCount_RNA` and `nFeature_RNA` and that the points should be colored based on `percent.mt`. Then, use `scale_color_gradientn` to specify how the points should be colored, specifying that the limit should be between 0 and 10 and that we should `squish` anything that is out of bounds (effectively making our limits 0 and \>10).
+
 ```{r}
 
 qc_data <- all_data@meta.data[c('orig.ident','nCount_RNA','nFeature_RNA','percent.mt')] %>% arrange(percent.mt)
@@ -389,25 +407,26 @@ ggplot2::ggplot(qc_data, ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = 
 
 ```
 
-- Low quality cells or empty droplets might have very few genes (`nFeatures`)
-- Dead or dying cells will also have high mitochondrial reads (`percent.mt`)
-- Doublets or multiplets will have high gene counts (`nFeatures`)
-- The total number of molecules (`nCount`) detected in a cell corresponds with the number of genes (`nFeatures`)
-- Most of the cells have less than 2000 genes and less than 7000 or so UMIs.
-- Very low mitochondrial counts from the `ifnb` data and the nFeature_RNA scatter plots look strange -- perhaps this dataset was pre-filtered before being packaged into SeuratData.
-- In the `pbmc3k` data, we can see groups of cells with high mitochondrial counts, low UMI counts, and lower numbers of genes.
-- Our goal in QC filtering is to retain as much useful information as we can, while removing doublets, empty droplets, and dead cells.
-- We will pick some thresholds for filtering based off of what we see in our data, keeping in mind that if you are doing this with your own data, your plots will probably look a bit different.
+-   Low quality cells or empty droplets might have very few genes (`nFeatures`)
+-   Dead or dying cells will also have high mitochondrial reads (`percent.mt`)
+-   Doublets or multiplets will have high gene counts (`nFeatures`)
+-   The total number of molecules (`nCount`) detected in a cell corresponds with the number of genes (`nFeatures`)
+-   Most of the cells have less than 2000 genes and less than 7000 or so UMIs.
+-   Very low mitochondrial counts from the `ifnb` data and the nFeature_RNA scatter plots look strange -- perhaps this dataset was pre-filtered before being packaged into SeuratData.
+-   In the `pbmc3k` data, we can see groups of cells with high mitochondrial counts, low UMI counts, and lower numbers of genes.
+-   Our goal in QC filtering is to retain as much useful information as we can, while removing doublets, empty droplets, and dead cells.
+-   We will pick some thresholds for filtering based off of what we see in our data, keeping in mind that if you are doing this with your own data, your plots will probably look a bit different.
 
 ## Data Filtering
 
-- Let's filter our data using `subset`, we'll keep cells that have between 500 and 7000 nFeature_RNA (genes) and less than 5% mitochondrial reads.
+-   Let's filter our data using `subset`, we'll keep cells that have between 500 and 7000 nFeature_RNA (genes) and less than 5% mitochondrial reads.
 
 ```{r}
 all_data_sub <- subset(all_data, subset = nFeature_RNA > 500 & nFeature_RNA < 7000 & percent.mt < 5)
 ```
 
-- You can re-examine your QC plots after filtering if you'd like:
+-   You can re-examine your QC plots after filtering if you'd like:
+
 ```{r}
 qc_data_sub <- all_data_sub@meta.data[c('orig.ident','nCount_RNA','nFeature_RNA','percent.mt')] %>% arrange(percent.mt)
 
@@ -418,13 +437,13 @@ ggplot2::ggplot(qc_data_sub,ggplot2:: aes(x = nCount_RNA, y = nFeature_RNA, colo
   ggplot2::theme_bw()
 ```
 
-- We can also take a look at how many cells we lost from filtering (245 cells lost from `pbmc3k`).
+-   We can also take a look at how many cells we lost from filtering (245 cells lost from `pbmc3k`).
+
 ```{r}
 table(all_data@meta.data$orig.ident)
 table(all_data_sub@meta.data$orig.ident)
 
 ```
-
 
 ## Normalization
 
@@ -446,17 +465,15 @@ The paper states:
 
 `As our workflow leverages all genes (or a random sub-set) for the initial regularization, we make an implicit assumption that the majority of genes in the dataset do not exhibit significant biological variation...this assumption may be overly simplistic when performing scRNA-seq on a highly heterogeneous sample, we did not observe adverse affects when applying our model to human PBMC data, or any of the other datasets we examined.`
 
-SCTransform might not work well if your data is highly heterogeneous and you expect that a high proportion of genes will exhibit significant biological variation across your samples. In this case, we would recommend the more standard workflow of `NormalizeData`, `FindVariableFeatures`, and `ScaleData`. 
+SCTransform might not work well if your data is highly heterogeneous and you expect that a high proportion of genes will exhibit significant biological variation across your samples. In this case, we would recommend the more standard workflow of `NormalizeData`, `FindVariableFeatures`, and `ScaleData`.
 
 ### SCTransform versions
 
-Seurat v5 runs SCTransform v2 (https://satijalab.org/seurat/archive/v4.3/sctransform_v2_vignette) by default, while Seurat v4 runs SCTransform v1 by default. SCTransform v2 "improves speed and memory consumption, the stability of parameter estimates, the identification of variable features, and the the ability to perform downstream differential expression analyses." This means you might get different results if you run Seurat v5 and re-normalize data that you have previously processed with Seurat v4. If you want to change from the default veresion of SCTransform, you can add the argument `vst.flavor = "v1"` (or  `vst.flavor = "v2"`))
+Seurat v5 runs SCTransform v2 (https://satijalab.org/seurat/archive/v4.3/sctransform_v2_vignette) by default, while Seurat v4 runs SCTransform v1 by default. SCTransform v2 "improves speed and memory consumption, the stability of parameter estimates, the identification of variable features, and the the ability to perform downstream differential expression analyses." This means you might get different results if you run Seurat v5 and re-normalize data that you have previously processed with Seurat v4. If you want to change from the default veresion of SCTransform, you can add the argument `vst.flavor = "v1"` (or `vst.flavor = "v2"`))
 
 ### Running SCTransform
 
 We will normalize using SCTransform and you might get see a warning that says 'iteration limit reached' when you run the function. This warning can be ignored (https://github.com/satijalab/sctransform/issues/25) because the parameter estimation generating this warning is regularized later anyway. You can use the `vars.to.regress` argument to regress out nuisance variables (like cell cycle, batch effects, or `percent.mt`). By default SCTransform will only return data for variable genes in the scale data slot -- adding the `return.only.var.genes = FALSE` argument to the function call to turn this option off (https://github.com/satijalab/seurat/issues/3553). In previous versions of Seurat, you would have to split your object into a list of Seurat objects based on the `orig.ident` and then run `SCTransform` on the list, which is not necessary in Seurat v5.
-
-
 
 ```{r "SCTransform"}
 
@@ -483,7 +500,7 @@ Based on this plot, we get diminishing information returned once we get above \~
 
 ## Integration
 
-Integration of single-cell sequencing datasets, for example across experimental batches, donors, or conditions, is often an important step in scRNA-seq workflows. Integrative analysis can help to match shared cell types and states across datasets, which can boost statistical power, and most importantly, facilitate accurate comparative analysis across datasets. In previous versions of Seurat we introduced methods for integrative analysis, including our ‘anchor-based’ integration workflow. Many labs have also published powerful and pioneering methods, including Harmony and scVI, for integrative analysis. We recognize that while the goal of matching shared cell types across datasets may be important for many problems, users may also be concerned about which method to use, or that integration could result in a loss of biological resolution. In Seurat v5, we introduce more flexible and streamlined infrastructure to run different integration algorithms with a single line of code. This makes it easier to explore the results of different integration methods, and to compare these results to a workflow that excludes integration steps. 
+Integration of single-cell sequencing datasets, for example across experimental batches, donors, or conditions, is often an important step in scRNA-seq workflows. Integrative analysis can help to match shared cell types and states across datasets, which can boost statistical power, and most importantly, facilitate accurate comparative analysis across datasets. In previous versions of Seurat we introduced methods for integrative analysis, including our ‘anchor-based’ integration workflow. Many labs have also published powerful and pioneering methods, including Harmony and scVI, for integrative analysis. We recognize that while the goal of matching shared cell types across datasets may be important for many problems, users may also be concerned about which method to use, or that integration could result in a loss of biological resolution. In Seurat v5, we introduce more flexible and streamlined infrastructure to run different integration algorithms with a single line of code. This makes it easier to explore the results of different integration methods, and to compare these results to a workflow that excludes integration steps.
 
 Seurat v5 enables streamlined integrative analysis using the `IntegrateLayers` function. The method currently supports five integration methods. Each of these methods performs integration in low-dimensional space, and returns a dimensional reduction (i.e. integrated.rpca) that aims to co-embed shared cell types across batches (samples):
 
@@ -505,8 +522,7 @@ By identifying shared sources of variation between datasets, CCA is well-suited 
 
 There are also papers that attempt to benchmark different integration approaches:
 
-"For example, the use of Harmony is appropriate for simple integration tasks with distinct batch and biological structure; however, this method typically ranks outside the top three when used for complex real data scenarios... Methods that used cell annotations to integrate batches (scGen and scANVI) performed well across tasks...Particularly in more complex integration tasks, we observed a tradeoff between batch effect removal and bio-conservation (Fig. 3a and Supplementary Data 1). While methods such as SAUCIE, LIGER, BBKNN and Seurat v3 tend to favor the removal of batch effects over conservation of biological variation, DESC and Conos make the opposite choice, and Scanorama, scVI and FastMNN (gene) balance these two objectives. Other methods strike different balances per task (Extended Data Fig. 4). This tradeoff is particularly noticeable where biological and batch effects overlap. For example, in the lung task, three datasets sample two distinct spatial locations (airway and parenchyma). Particular cell types such as endothelial cells perform different functions in these locations (for example, gas exchange in the parenchyma)."
-(Luecken et al 2022 https://doi.org/10.1038/s41592-021-01336-8).
+"For example, the use of Harmony is appropriate for simple integration tasks with distinct batch and biological structure; however, this method typically ranks outside the top three when used for complex real data scenarios... Methods that used cell annotations to integrate batches (scGen and scANVI) performed well across tasks...Particularly in more complex integration tasks, we observed a tradeoff between batch effect removal and bio-conservation (Fig. 3a and Supplementary Data 1). While methods such as SAUCIE, LIGER, BBKNN and Seurat v3 tend to favor the removal of batch effects over conservation of biological variation, DESC and Conos make the opposite choice, and Scanorama, scVI and FastMNN (gene) balance these two objectives. Other methods strike different balances per task (Extended Data Fig. 4). This tradeoff is particularly noticeable where biological and batch effects overlap. For example, in the lung task, three datasets sample two distinct spatial locations (airway and parenchyma). Particular cell types such as endothelial cells perform different functions in these locations (for example, gas exchange in the parenchyma)." (Luecken et al 2022 https://doi.org/10.1038/s41592-021-01336-8).
 
 We will run `CCAIntegration` (this was the default flavor of integration in previous versions of Seurat), `RPCAIntegration`, and `HarmonyIntegration`. Note that we are specifying that we used `SCT` normalization:
 
@@ -557,8 +573,6 @@ all_data_sub <- RunUMAP(all_data_sub, reduction = "integrated.cca", dims = 1:10,
 all_data_sub <- RunUMAP(all_data_sub, reduction = "integrated.rpca", dims = 1:10, reduction.name = "umap.rpca")
 all_data_sub <- RunUMAP(all_data_sub, reduction = "harmony", dims = 1:10, reduction.name = "umap.harmony")
 ```
-
-
 
 ```{r}
 p1 <- DimPlot(
@@ -638,6 +652,7 @@ set2_colors <- colorRampPalette(brewer.pal(8, 'Set2'))(all_data_sub@meta.data$cc
 ```
 
 Then plot the cell using these color themes:
+
 ```{r}
 
 DimPlot(
@@ -659,7 +674,6 @@ DimPlot(
   cols = set2_colors
 )
 ```
-
 
 We can leave the legend off, use the Zissou colors, omit the `split_by` argument and the legend:
 
@@ -683,9 +697,6 @@ Once integrative analysis is complete, you can rejoin the layers - which collaps
 ```{r}
 all_data_sub <- JoinLayers(all_data_sub, assay ='RNA')
 ```
-
-
-
 
 ## Differential Expression Analysis
 
@@ -799,6 +810,7 @@ Or like this:
 ```{r}
 DoHeatmap(subset(all_data_sub, downsample = 50), features = top_cluster_markers$gene) & viridis::scale_fill_viridis() & ggplot2::guides(colour=FALSE)
 ```
+
 Another helpful visualization from Seurat is `DotPlot`. The size of each dot indicates the percentage of cells expressing the feature and the color is the average expression level. It uses the scale.data slot by default.
 
 ```{r}
