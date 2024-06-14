@@ -18,7 +18,7 @@ Fill in the fields as follows:
 
 -   `Memory`: 15
 
--   `Singularity Container Path`:/oscar/data/shared/databases/workshops/bootcamp_2024/ngs_count/bootcamp_ngs_counts.sif
+-   `Singularity Container Path`:/oscar/data/shared/databases/workshops/bootcamp_2024/ngs_counts/bootcamp_ngs_counts.sif
 
 -   `Package install Path`: leave blank
 
