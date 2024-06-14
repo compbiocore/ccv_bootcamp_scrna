@@ -39,7 +39,7 @@ Fill in the fields as follows:
 -   `Reservation`: bootcamp\
 
 Once your job starts, click the button to connect to session.\
-At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file' and open the index.qmd file in the repo you cloned.\
+At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file' and open the notebooks/index.qmd file in the repo you cloned.\
 
 ## Introduction to scRNA-seq
 

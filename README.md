@@ -8,27 +8,27 @@
 
 Fill in the fields as follows:
 
--   `Account`: leave blank\
+-   `Account`: leave blank
 
--   `Partition`: leave blank\
+-   `Partition`: leave blank
 
--   `Number of hours`: 24\
+-   `Number of hours`: 24
 
--   `Num Cores`: 4\
+-   `Num Cores`: 4
 
--   `Memory`: 15\
+-   `Memory`: 15
 
--   `Singularity Container Path`:/oscar/data/shared/databases/workshops/bootcamp_2024/ngs_count/bootcamp_ngs_counts.sif\
+-   `Singularity Container Path`:/oscar/data/shared/databases/workshops/bootcamp_2024/ngs_count/bootcamp_ngs_counts.sif
 
--   `Package install Path`: leave blank\
+-   `Package install Path`: leave blank
 
--   `Path for R Executable`: This should be the full path to the `ccv_bootcamp_scrna` repository you made in step 4.\
+-   `Path for R Executable`: This should be the full path to the `ccv_bootcamp_scrna` repository you made in step 4.
 
--   `R Module`: leave blank\
+-   `R Module`: leave blank
 
 -   `Additional Data Path`: leave blank
 
--   `Reservation`: bootcamp\
+-   `Reservation`: bootcamp
 
-Once your job starts, click the button to connect to session.\
-At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file' and open the index.qmd file in the repo you cloned.\
+I added many of you to the reservation, but not all of you, so you might need to leave the `Reservation` field blank as well. Once your job starts, click the button to connect to session. At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file' and open the notebooks/index.qmd file in the repo you cloned. 
+
