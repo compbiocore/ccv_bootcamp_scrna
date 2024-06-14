@@ -28,7 +28,7 @@ Fill in the fields as follows:
 
 -   `Additional Data Path`: leave blank
 
--   `Reservation`: bootcamp
+-   `Reservation`: bootcamp (optional)
 
 I added many of you to the reservation, but not all of you, so you might need to leave the `Reservation` field blank as well. Once your job starts, click the button to connect to session. At the top of the screen you'll see a menu bar that starts with 'file', click on 'file' and 'open file' and open the notebooks/index.qmd file in the repo you cloned. 
 
