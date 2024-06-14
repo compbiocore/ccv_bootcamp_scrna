@@ -22,7 +22,7 @@ Fill in the fields as follows:
 
 -   `Package install Path`: leave blank
 
--   `Path for R Executable`: This should be the full path to the `ccv_bootcamp_scrna` repository you made in step 4.
+-   `Path for R Executable`: ~/scratch
 
 -   `R Module`: leave blank
 
